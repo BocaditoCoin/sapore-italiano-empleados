@@ -1,5 +1,35 @@
 .nominas-page {
   color: #fff;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.no-data {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.estado-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.estado-badge.pendiente {
+  background: rgba(241, 196, 15, 0.2);
+  color: #f1c40f;
+}
+
+.estado-badge.pagada {
+  background: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+
+.estado-badge.anulada {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
 }
 
 .nominas-header {

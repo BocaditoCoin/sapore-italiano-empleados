@@ -1,5 +1,55 @@
 .historial-page {
   color: #fff;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.no-data {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tipo-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.tipo-badge.entrada {
+  background: rgba(39, 174, 96, 0.2);
+}
+
+.tipo-badge.salida {
+  background: rgba(231, 76, 60, 0.2);
+}
+
+.tipo-badge.pausa_inicio {
+  background: rgba(241, 196, 15, 0.2);
+}
+
+.tipo-badge.pausa_fin {
+  background: rgba(52, 152, 219, 0.2);
+}
+
+.hora {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.legal-notice {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(39, 174, 96, 0.1);
+  border: 1px solid rgba(39, 174, 96, 0.3);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.legal-notice p {
+  margin: 0.25rem 0;
 }
 
 .historial-header {
