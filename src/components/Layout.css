@@ -77,6 +77,50 @@
   color: #fff;
 }
 
+/* User Bar */
+.user-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 2rem;
+  background: rgba(39, 174, 96, 0.08);
+  border-bottom: 1px solid rgba(39, 174, 96, 0.2);
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.user-name {
+  color: #27ae60;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.user-role {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+}
+
+/* Nav Logout */
+.nav-logout {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: auto;
+}
+
+.nav-logout:hover {
+  color: #e74c3c;
+  background: rgba(231, 76, 60, 0.1);
+}
+
 /* Main Content */
 .main-content {
   flex: 1;

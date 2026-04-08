@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Clock, User, CheckCircle, XCircle, Coffee, ArrowRight, Loader } from 'lucide-react'
-import { getEmpleados, createFichaje, getFichajesHoy } from '../services/api'
+import { getEmpleados, createFichaje, getFichajesHoy, getEmpleado, updateEmpleado } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 import './Fichaje.css'
 
 function Fichaje() {
+  const { user, isAdmin } = useAuth()
   const [empleados, setEmpleados] = useState([])
   const [loading, setLoading] = useState(true)
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState(null)
@@ -23,12 +25,17 @@ function Fichaje() {
 
   const loadData = async () => {
     try {
-      const [empleadosData, fichajesData] = await Promise.all([
-        getEmpleados(),
-        getFichajesHoy()
-      ])
-      setEmpleados(empleadosData.filter(e => e.Activo))
+      const fichajesData = await getFichajesHoy()
       setFichajesHoy(fichajesData)
+
+      if (isAdmin) {
+        const empleadosData = await getEmpleados()
+        setEmpleados(empleadosData.filter(e => e.Activo))
+      } else {
+        // Empleado normal: cargar solo sus datos
+        const empData = await getEmpleado(user.id)
+        setEmpleadoSeleccionado(empData)
+      }
     } catch (error) {
       console.error('Error cargando datos:', error)
     } finally {
@@ -54,14 +61,15 @@ function Fichaje() {
   }
 
   const handleFichaje = async (tipo) => {
-    if (!empleadoSeleccionado || guardando) return
+    const emp = empleadoSeleccionado
+    if (!emp || guardando) return
 
     setGuardando(true)
     try {
       const ahora = new Date()
       const fichaje = {
-        'Ejemplo': `Fichaje ${tipo} - ${empleadoSeleccionado['Nombre completo']}`,
-        'Empleado': [empleadoSeleccionado.id],
+        'Ejemplo': `Fichaje ${tipo} - ${emp['Nombre completo']}`,
+        'Empleado': [emp.id],
         'Fecha': ahora.toISOString().split('T')[0],
         'Hora': formatTime(ahora),
         'Tipo': tipo
@@ -71,13 +79,13 @@ function Fichaje() {
       
       const nuevoFichaje = {
         id: Date.now(),
-        empleadoId: empleadoSeleccionado.id,
-        empleado: empleadoSeleccionado['Nombre completo'],
+        empleadoId: emp.id,
+        empleado: emp['Nombre completo'],
         tipo: tipo,
         hora: formatTime(ahora)
       }
       
-      setFichajesHoy([...fichajesHoy, nuevoFichaje])
+      setFichajesHoy(prev => [...prev, nuevoFichaje])
       setUltimoFichaje(nuevoFichaje)
     } catch (error) {
       console.error('Error guardando fichaje:', error)
@@ -133,37 +141,49 @@ function Fichaje() {
       </div>
 
       <div className="fichaje-container">
-        {/* Selección de empleado */}
-        <div className="empleado-selector">
-          <h2><User size={20} /> Seleccionar Empleado</h2>
-          <div className="empleados-grid">
-            {empleados.map(emp => (
-              <button
-                key={emp.id}
-                className={`empleado-card ${empleadoSeleccionado?.id === emp.id ? 'selected' : ''}`}
-                onClick={() => {
-                  setEmpleadoSeleccionado(emp)
-                  setUltimoFichaje(null)
-                }}
-              >
-                <div className="empleado-avatar">
-                  {emp['Nombre completo']?.split(' ').map(n => n[0]).join('').slice(0,2) || 'NA'}
-                </div>
-                <div className="empleado-info">
-                  <span className="empleado-nombre">{emp['Nombre completo']}</span>
-                  <span className="empleado-puesto">{emp.Categoria?.value}</span>
-                </div>
-              </button>
-            ))}
+        {/* Si es admin, mostrar selector de empleados */}
+        {isAdmin && (
+          <div className="empleado-selector">
+            <h2><User size={20} /> Seleccionar Empleado</h2>
+            <div className="empleados-grid">
+              {empleados.map(emp => (
+                <button
+                  key={emp.id}
+                  className={`empleado-card ${empleadoSeleccionado?.id === emp.id ? 'selected' : ''}`}
+                  onClick={() => {
+                    setEmpleadoSeleccionado(emp)
+                    setUltimoFichaje(null)
+                  }}
+                >
+                  <div className="empleado-avatar">
+                    {emp['Nombre completo']?.split(' ').map(n => n[0]).join('').slice(0,2) || 'NA'}
+                  </div>
+                  <div className="empleado-info">
+                    <span className="empleado-nombre">{emp['Nombre completo']}</span>
+                    <span className="empleado-puesto">{emp.Categoria?.value}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Si es empleado normal, mostrar su nombre sin selector */}
+        {!isAdmin && empleadoSeleccionado && (
+          <div className="empleado-selector">
+            <h2><User size={20} /> {empleadoSeleccionado['Nombre completo']}</h2>
+            <p style={{ color: 'rgba(255,255,255,0.5)', margin: 0, fontSize: '0.9rem' }}>
+              {empleadoSeleccionado.Categoria?.value || 'Empleado'}
+            </p>
+          </div>
+        )}
 
         {/* Panel de fichaje */}
         {empleadoSeleccionado && (
           <div className="fichaje-panel">
             <h2>
               <Clock size={20} /> 
-              Fichar: {empleadoSeleccionado['Nombre completo']}
+              {isAdmin ? `Fichar: ${empleadoSeleccionado['Nombre completo']}` : 'Fichar'}
             </h2>
             
             <div className="fichaje-actions">

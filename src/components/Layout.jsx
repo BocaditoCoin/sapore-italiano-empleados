@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Clock, FileText, Users, Settings, Menu, X } from 'lucide-react'
+import { Home, Clock, FileText, Users, Settings, Menu, X, LogOut } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import './Layout.css'
 
 function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
+  const { user, logout, isAdmin } = useAuth()
   
-  const navItems = [
+  const allNavItems = [
     { path: '/', icon: Home, label: 'Dashboard' },
     { path: '/fichaje', icon: Clock, label: 'Fichaje' },
     { path: '/historial', icon: FileText, label: 'Historial' },
-    { path: '/empleados', icon: Users, label: 'Empleados' },
-    { path: '/configuracion', icon: Settings, label: 'Configuración' },
+    { path: '/empleados', icon: Users, label: 'Empleados', adminOnly: true },
+    { path: '/configuracion', icon: Settings, label: 'Configuración', adminOnly: true },
   ]
+
+  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
     <div className="app-container">
@@ -39,9 +43,23 @@ function Layout({ children }) {
                 <span>{item.label}</span>
               </Link>
             ))}
+            <button className="nav-item nav-logout" onClick={logout}>
+              <LogOut size={20} />
+              <span>Salir</span>
+            </button>
           </nav>
         </div>
       </header>
+
+      {/* User Bar */}
+      <div className="user-bar">
+        <span className="user-name">
+          {isAdmin ? '👑' : '👤'} {user?.nombre?.split(' ')[0]}
+        </span>
+        <span className="user-role">
+          {isAdmin ? 'Administrador' : 'Empleado'}
+        </span>
+      </div>
 
       {/* Main Content */}
       <main className="main-content">
