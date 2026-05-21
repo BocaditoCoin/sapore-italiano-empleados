@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Clock, User, CheckCircle, XCircle, Coffee, ArrowRight, Loader } from 'lucide-react'
 import { getEmpleados, createFichaje, getFichajesHoy, getEmpleado, updateEmpleado } from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -23,6 +23,54 @@ function Fichaje() {
     loadData()
   }, [])
 
+  // Helper: comprobar si un fichaje pertenece a un empleado
+  // Baserow devuelve Empleado como array de IDs, los locales usan empleadoId
+  const fichajeEsDeEmpleado = useCallback((fichaje, empId) => {
+    if (fichaje.empleadoId === empId) return true
+    if (Array.isArray(fichaje.Empleado) && fichaje.Empleado.includes(empId)) return true
+    if (fichaje.Empleado === empId) return true
+    return false
+  }, [])
+
+  // Helper: obtener el tipo de fichaje desde un registro (Baserow o local)
+  const getTipoFichaje = useCallback((fichaje) => {
+    if (fichaje.tipo) return fichaje.tipo
+    if (fichaje.Tipo) {
+      // Baserow puede devolver el valor directamente o como objeto {value, id}
+      return typeof fichaje.Tipo === 'object' ? fichaje.Tipo.value : fichaje.Tipo
+    }
+    return null
+  }, [])
+
+  // Helper: obtener la hora de un fichaje (Baserow o local)
+  const getHoraFichaje = useCallback((fichaje) => {
+    return fichaje.hora || fichaje.Hora || ''
+  }, [])
+
+  // Calcular último fichaje de un empleado a partir de los datos de Baserow
+  const calcularUltimoFichaje = useCallback((fichajesData, empId) => {
+    const delEmpleado = fichajesData.filter(f => fichajeEsDeEmpleado(f, empId))
+    if (delEmpleado.length === 0) return null
+
+    // Ordenar por hora descendente para obtener el último
+    // Baserow rows tienen campo 'order' y 'id' que reflejan el orden de creación
+    const ordenados = [...delEmpleado].sort((a, b) => {
+      // Primero intentar ordenar por ID de fila (Baserow auto-incrementa)
+      const idA = a.id || 0
+      const idB = b.id || 0
+      return idB - idA
+    })
+
+    const ultimo = ordenados[0]
+    const tipo = getTipoFichaje(ultimo)
+    
+    return {
+      id: ultimo.id,
+      tipo: tipo,
+      hora: getHoraFichaje(ultimo)
+    }
+  }, [fichajeEsDeEmpleado, getTipoFichaje, getHoraFichaje])
+
   const loadData = async () => {
     try {
       const fichajesData = await getFichajesHoy()
@@ -31,10 +79,14 @@ function Fichaje() {
       if (isAdmin) {
         const empleadosData = await getEmpleados()
         setEmpleados(empleadosData.filter(e => e.Activo))
+        // Admin: no preseleccionar empleado, se selecciona manualmente
       } else {
         // Empleado normal: cargar solo sus datos
         const empData = await getEmpleado(user.id)
         setEmpleadoSeleccionado(empData)
+        // Calcular último fichaje del empleado desde los datos existentes
+        const ultimo = calcularUltimoFichaje(fichajesData, user.id)
+        setUltimoFichaje(ultimo)
       }
     } catch (error) {
       console.error('Error cargando datos:', error)
@@ -77,22 +129,26 @@ function Fichaje() {
 
       await createFichaje(fichaje)
       
-      const nuevoFichaje = {
-        id: Date.now(),
-        empleadoId: emp.id,
-        empleado: emp['Nombre completo'],
-        tipo: tipo,
-        hora: formatTime(ahora)
-      }
+      // Re-cargar datos desde la API para mantener consistencia
+      const fichajesData = await getFichajesHoy()
+      setFichajesHoy(fichajesData)
       
-      setFichajesHoy(prev => [...prev, nuevoFichaje])
-      setUltimoFichaje(nuevoFichaje)
+      // Actualizar último fichaje con datos frescos
+      const ultimo = calcularUltimoFichaje(fichajesData, emp.id)
+      setUltimoFichaje(ultimo)
     } catch (error) {
       console.error('Error guardando fichaje:', error)
       alert('Error al guardar el fichaje')
     } finally {
       setGuardando(false)
     }
+  }
+
+  // Cuando el admin selecciona un empleado, calcular su último fichaje
+  const handleSeleccionEmpleado = (emp) => {
+    setEmpleadoSeleccionado(emp)
+    const ultimo = calcularUltimoFichaje(fichajesHoy, emp.id)
+    setUltimoFichaje(ultimo)
   }
 
   const getTiposFichaje = () => {
@@ -150,10 +206,7 @@ function Fichaje() {
                 <button
                   key={emp.id}
                   className={`empleado-card ${empleadoSeleccionado?.id === emp.id ? 'selected' : ''}`}
-                  onClick={() => {
-                    setEmpleadoSeleccionado(emp)
-                    setUltimoFichaje(null)
-                  }}
+                  onClick={() => handleSeleccionEmpleado(emp)}
                 >
                   <div className="empleado-avatar">
                     {emp['Nombre completo']?.split(' ').map(n => n[0]).join('').slice(0,2) || 'NA'}
@@ -202,23 +255,28 @@ function Fichaje() {
             </div>
 
             {/* Historial del día */}
-            {fichajesHoy.filter(f => f.empleadoId === empleadoSeleccionado.id).length > 0 && (
+            {fichajesHoy.filter(f => fichajeEsDeEmpleado(f, empleadoSeleccionado.id)).length > 0 && (
               <div className="fichajes-hoy">
                 <h3>Registros de hoy</h3>
                 <div className="fichajes-list">
                   {fichajesHoy
-                    .filter(f => f.empleadoId === empleadoSeleccionado.id)
-                    .map(f => (
-                      <div key={f.id} className={`fichaje-item ${f.tipo}`}>
-                        <span className="fichaje-tipo">
-                          {f.tipo === 'entrada' && '🟢 Entrada'}
-                          {f.tipo === 'salida' && '🔴 Salida'}
-                          {f.tipo === 'pausa_inicio' && '🟠 Inicio Pausa'}
-                          {f.tipo === 'pausa_fin' && '🔵 Fin Pausa'}
-                        </span>
-                        <span className="fichaje-hora">{f.hora}</span>
-                      </div>
-                    ))}
+                    .filter(f => fichajeEsDeEmpleado(f, empleadoSeleccionado.id))
+                    .sort((a, b) => (a.id || 0) - (b.id || 0))
+                    .map(f => {
+                      const tipo = getTipoFichaje(f)
+                      const hora = getHoraFichaje(f)
+                      return (
+                        <div key={f.id} className={`fichaje-item ${tipo}`}>
+                          <span className="fichaje-tipo">
+                            {tipo === 'entrada' && '🟢 Entrada'}
+                            {tipo === 'salida' && '🔴 Salida'}
+                            {tipo === 'pausa_inicio' && '🟠 Inicio Pausa'}
+                            {tipo === 'pausa_fin' && '🔵 Fin Pausa'}
+                          </span>
+                          <span className="fichaje-hora">{hora}</span>
+                        </div>
+                      )
+                    })}
                 </div>
               </div>
             )}
